@@ -5,7 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
-
+#include <vector>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -17,52 +17,58 @@
 
 #include "shader.h"
 
+std::vector<float> sphereVertices;
+std::vector<unsigned int> sphereIndices;
 
-// A 1x1 cube centered at origin
-float cubeVertices[] = {
-    // positions         
-    -0.5f, -0.5f, -0.5f,  
-     0.5f, -0.5f, -0.5f,  
-     0.5f,  0.5f, -0.5f,  
-     0.5f,  0.5f, -0.5f,  
-    -0.5f,  0.5f, -0.5f,  
-    -0.5f, -0.5f, -0.5f,  
+void generateUVSphere(float radius, int sectorCount, int stackCount, std::vector<float>& vertices) {
+    vertices.clear();
 
-    -0.5f, -0.5f,  0.5f,  
-     0.5f, -0.5f,  0.5f,  
-     0.5f,  0.5f,  0.5f,  
-     0.5f,  0.5f,  0.5f,  
-    -0.5f,  0.5f,  0.5f,  
-    -0.5f, -0.5f,  0.5f,  
+    float x, y, z, xy;
+    float sectorStep = 2 * M_PI / sectorCount;
+    float stackStep = M_PI / stackCount;
+    float sectorAngle, stackAngle;
 
-    -0.5f,  0.5f,  0.5f,  
-    -0.5f,  0.5f, -0.5f,  
-    -0.5f, -0.5f, -0.5f,  
-    -0.5f, -0.5f, -0.5f,  
-    -0.5f, -0.5f,  0.5f,  
-    -0.5f,  0.5f,  0.5f,  
+    for(int i = 0; i <= stackCount; ++i) {
+        stackAngle = M_PI / 2 - i * stackStep;        //from pi/2 to -pi/2
+        xy = radius * cosf(stackAngle);             
+        z = radius * sinf(stackAngle);             
 
-     0.5f,  0.5f,  0.5f,  
-     0.5f,  0.5f, -0.5f,  
-     0.5f, -0.5f, -0.5f,  
-     0.5f, -0.5f, -0.5f,  
-     0.5f, -0.5f,  0.5f,  
-     0.5f,  0.5f,  0.5f,  
+        for(int j = 0; j <= sectorCount; ++j) {
+            sectorAngle = j * sectorStep;           // from 0 to 2pi
 
-    -0.5f, -0.5f, -0.5f,  
-     0.5f, -0.5f, -0.5f,  
-     0.5f, -0.5f,  0.5f,  
-     0.5f, -0.5f,  0.5f,  
-    -0.5f, -0.5f,  0.5f,  
-    -0.5f, -0.5f, -0.5f,  
+            x = xy * cosf(sectorAngle);             
+            y = xy * sinf(sectorAngle);             
+            vertices.push_back(x);
+            vertices.push_back(y);
+            vertices.push_back(z);
+        }
+    }
+}
 
-    -0.5f,  0.5f, -0.5f,  
-     0.5f,  0.5f, -0.5f,  
-     0.5f,  0.5f,  0.5f,  
-     0.5f,  0.5f,  0.5f,  
-    -0.5f,  0.5f,  0.5f,  
-    -0.5f,  0.5f, -0.5f,  
-};
+void generateUVSphereIndices(int sectorCount, int stackCount, std::vector<unsigned int>& indices) {
+    indices.clear();
+
+    int k1, k2;
+    for (int i = 0; i < stackCount; ++i) {
+        k1 = i * (sectorCount + 1);    
+        k2 = k1 + sectorCount + 1;      
+
+        for (int j = 0; j < sectorCount; ++j, ++k1, ++k2) {
+
+            if (i != 0) {
+                indices.push_back(k1);
+                indices.push_back(k2);
+                indices.push_back(k1 + 1);
+            }
+
+            if (i != (stackCount - 1)) {
+                indices.push_back(k1 + 1);
+                indices.push_back(k2);
+                indices.push_back(k2 + 1);
+            }
+        }
+    }
+}
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -116,18 +122,31 @@ int main()
 
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
-    
-    unsigned int VAO, VBO;
+
+    //set up sphere model
+    float radius = 0.5f;
+    int sectorCount = 36;  // longitude 
+    int stackCount = 18;   // latitude 
+
+    generateUVSphere(radius, sectorCount, stackCount, sphereVertices);
+    generateUVSphereIndices(sectorCount, stackCount, sphereIndices);    
+
+    unsigned int VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
 
     //bind vao
     glBindVertexArray(VAO);
 
     //vertex data
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sphereVertices.size() * sizeof(float), &sphereVertices[0], GL_STATIC_DRAW);
 
+    //element data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphereIndices.size() * sizeof(unsigned int), &sphereIndices[0], GL_STATIC_DRAW);
+    
     //vertex attribute pointer
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -179,7 +198,7 @@ int main()
 
         //draw
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDrawElements(GL_TRIANGLES, (GLsizei)sphereIndices.size(), GL_UNSIGNED_INT, 0);
 
         //safety unbind
         glBindVertexArray(0);
