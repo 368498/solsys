@@ -15,6 +15,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#include "shader.h"
+
 
 // A 1x1 cube centered at origin
 float cubeVertices[] = {
@@ -134,60 +136,7 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    //handle shaders
-    std::string vertexSource = loadShaderSource("shaders/vertex_shader.glsl");
-    std::string fragmentSource = loadShaderSource("shaders/fragment_shader.glsl");
-    const char* vertexShaderSource = vertexSource.c_str();
-    const char* fragmentShaderSource = fragmentSource.c_str();
-
-    unsigned int vertexShader;
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-    
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" <<infoLog << std::endl;
-    }
-
-    
-    unsigned int fragmentShader;
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-    
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" <<infoLog << std::endl;
-    }
-
-    unsigned int shaderProgram;
-    shaderProgram = glCreateProgram();
-
-
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-
-    
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if(!success)
-    {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::PROGRAM::LINK_FAILED\n" <<infoLog << std::endl;
-    }
-
-    
-    glUseProgram(shaderProgram);
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    Shader shader("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
 
     glViewport(0, 0, 800, 600);
 
@@ -202,9 +151,11 @@ int main()
         // Clear colour and depth buffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        float time = (float)glfwGetTime();
+
         //model matrix
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, time, glm::vec3(1.0f, 0.0f, 0.0f));
 
         //view
         glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -216,13 +167,11 @@ int main()
         //model view projection
         glm::mat4 mvp = projection * view * model;
         
-        //send to shaders
-        unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-        unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
-        unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        //Use shaders
+        shader.use();
+        shader.setMat4("model", model);
+        shader.setMat4("view", view);
+        shader.setMat4("projection", projection);
 
         //draw here
         glClearColor(0.1f, 0.4f, 0.3f, 1.0f);
