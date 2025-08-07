@@ -88,10 +88,13 @@ std::string loadShaderSource(const char* filePath) {
 
 int main()
 {
+    if (!glfwInit()) return -1;
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3); 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "Tutorial", NULL, NULL);
     if ( window == NULL)
@@ -109,6 +112,8 @@ int main()
         return -1;
     }
 
+    // enable depth testing
+    glEnable(GL_DEPTH_TEST);
     
     unsigned int VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -188,9 +193,14 @@ int main()
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+    // main render loop
     while(!glfwWindowShouldClose(window))
     {
+        // Poll input events
         processInput(window);
+
+        // Clear colour and depth buffer
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //model matrix
         glm::mat4 model = glm::mat4(1.0f);
@@ -214,7 +224,7 @@ int main()
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-        //render here
+        //draw here
         glClearColor(0.1f, 0.4f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
