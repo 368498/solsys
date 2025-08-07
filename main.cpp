@@ -16,10 +16,50 @@
 #include "stb_image.h"
 
 
-float vertices[] = {
-    -0.5f, -0.5f,  0.0f,
-    0.5f, -0.5f, 0.0f,
-    0.5f, 0.5f, 0.0f
+// A 1x1 cube centered at origin
+float cubeVertices[] = {
+    // positions         
+    -0.5f, -0.5f, -0.5f,  
+     0.5f, -0.5f, -0.5f,  
+     0.5f,  0.5f, -0.5f,  
+     0.5f,  0.5f, -0.5f,  
+    -0.5f,  0.5f, -0.5f,  
+    -0.5f, -0.5f, -0.5f,  
+
+    -0.5f, -0.5f,  0.5f,  
+     0.5f, -0.5f,  0.5f,  
+     0.5f,  0.5f,  0.5f,  
+     0.5f,  0.5f,  0.5f,  
+    -0.5f,  0.5f,  0.5f,  
+    -0.5f, -0.5f,  0.5f,  
+
+    -0.5f,  0.5f,  0.5f,  
+    -0.5f,  0.5f, -0.5f,  
+    -0.5f, -0.5f, -0.5f,  
+    -0.5f, -0.5f, -0.5f,  
+    -0.5f, -0.5f,  0.5f,  
+    -0.5f,  0.5f,  0.5f,  
+
+     0.5f,  0.5f,  0.5f,  
+     0.5f,  0.5f, -0.5f,  
+     0.5f, -0.5f, -0.5f,  
+     0.5f, -0.5f, -0.5f,  
+     0.5f, -0.5f,  0.5f,  
+     0.5f,  0.5f,  0.5f,  
+
+    -0.5f, -0.5f, -0.5f,  
+     0.5f, -0.5f, -0.5f,  
+     0.5f, -0.5f,  0.5f,  
+     0.5f, -0.5f,  0.5f,  
+    -0.5f, -0.5f,  0.5f,  
+    -0.5f, -0.5f, -0.5f,  
+
+    -0.5f,  0.5f, -0.5f,  
+     0.5f,  0.5f, -0.5f,  
+     0.5f,  0.5f,  0.5f,  
+     0.5f,  0.5f,  0.5f,  
+    -0.5f,  0.5f,  0.5f,  
+    -0.5f,  0.5f, -0.5f,  
 };
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -70,13 +110,26 @@ int main()
     }
 
     
-    unsigned int VBO;
+    unsigned int VAO, VBO;
+    glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
+    //bind vao
+    glBindVertexArray(VAO);
+
+    //vertex data
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    //vertex attribute pointer
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
+    //safety unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    //handle shaders
     std::string vertexSource = loadShaderSource("shaders/vertex_shader.glsl");
     std::string fragmentSource = loadShaderSource("shaders/fragment_shader.glsl");
     const char* vertexShaderSource = vertexSource.c_str();
@@ -144,7 +197,12 @@ int main()
         glClearColor(0.1f, 0.4f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        //draw
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
 
+        //safety unbind
+        glBindVertexArray(0);
 
 
         glfwSwapBuffers(window);
