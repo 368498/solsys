@@ -20,6 +20,14 @@
 std::vector<float> sphereVertices;
 std::vector<unsigned int> sphereIndices;
 
+//camera variable
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f,  3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f); 
+glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
+
 void generateUVSphere(float radius, int sectorCount, int stackCount, std::vector<float>& vertices) {
     vertices.clear();
 
@@ -80,6 +88,24 @@ void processInput(GLFWwindow *window)
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, true);
+    }
+
+    const float cameraSpeed = 2.5f * deltaTime;
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        cameraPos += cameraSpeed * cameraFront;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        cameraPos -= cameraSpeed * cameraFront;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
     }
 }
 
@@ -164,6 +190,11 @@ int main()
     // main render loop
     while(!glfwWindowShouldClose(window))
     {
+        //time
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         // Poll input events
         processInput(window);
 
@@ -176,8 +207,8 @@ int main()
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::rotate(model, time, glm::vec3(1.0f, 0.0f, 0.0f));
 
-        //view
-        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        //view - camera
+        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
         //projection
         float aspectRatio = 800.0f / 600.0f;
