@@ -28,7 +28,13 @@ glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f,  3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f); 
 glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
 
-void generateUVSphere(float radius, int sectorCount, int stackCount, std::vector<float>& vertices) {
+float cameraRadius = 3.0f;          
+float orbitAngle = 0.0f;       
+float orbitSpeed = 1.5f;    
+float zoomSpeed = 1.0f;   
+
+void generateUVSphere(float radius, int sectorCount, int stackCount, std::vector<float>& vertices) 
+{
     vertices.clear();
 
     float x, y, z, xy;
@@ -53,7 +59,8 @@ void generateUVSphere(float radius, int sectorCount, int stackCount, std::vector
     }
 }
 
-void generateUVSphereIndices(int sectorCount, int stackCount, std::vector<unsigned int>& indices) {
+void generateUVSphereIndices(int sectorCount, int stackCount, std::vector<unsigned int>& indices) 
+{
     indices.clear();
 
     int k1, k2;
@@ -92,24 +99,35 @@ void processInput(GLFWwindow *window)
 
     const float cameraSpeed = 2.5f * deltaTime;
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        cameraPos += cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) 
+    {
+        // zoom in
+        cameraRadius -= zoomSpeed * cameraSpeed;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        cameraPos -= cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) 
+    {
+        //zoom out
+        cameraRadius += zoomSpeed * cameraSpeed;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    //clamp camera orbit radius
+    if (cameraRadius < 0.5f) cameraRadius = 0.5f;
+    if (cameraRadius > 20.0f) cameraRadius = 20.0f;
+
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) 
+    {
+        orbitAngle += orbitSpeed * deltaTime;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) 
+    {
+        orbitAngle -= orbitSpeed * deltaTime;
     }
 }
 
-std::string loadShaderSource(const char* filePath) {
+std::string loadShaderSource(const char* filePath) 
+{
     std::ifstream file(filePath);
     if (!file.is_open()) {
         std::cerr << "Failed to open shader file: " << filePath << std::endl;
@@ -149,12 +167,12 @@ int main()
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
 
-    //set up sphere model
-    float radius = 0.5f;
+    // set up sphere model
+    float sphereRadius = 0.5f;
     int sectorCount = 36;  // longitude 
     int stackCount = 18;   // latitude 
 
-    generateUVSphere(radius, sectorCount, stackCount, sphereVertices);
+    generateUVSphere(sphereRadius, sectorCount, stackCount, sphereVertices);
     generateUVSphereIndices(sectorCount, stackCount, sphereIndices);    
 
     unsigned int VAO, VBO, EBO;
@@ -208,7 +226,9 @@ int main()
         model = glm::rotate(model, time, glm::vec3(1.0f, 0.0f, 0.0f));
 
         //view - camera
-        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        cameraPos.x = cameraRadius * sin(orbitAngle);
+        cameraPos.z = cameraRadius * cos(orbitAngle);
+        glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f), cameraUp);
 
         //projection
         float aspectRatio = 800.0f / 600.0f;
