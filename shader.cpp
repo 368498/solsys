@@ -4,7 +4,8 @@
 #include <sstream>
 #include <iostream>
 
-Shader::Shader(const char* vertexPath, const char* fragmentPath) {
+Shader::Shader(const char* vertexPath, const char* fragmentPath) 
+{
     std::string vertexCode;
     std::string fragmentCode;
     std::ifstream vShaderFile;
@@ -14,7 +15,8 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
-    try {
+    try 
+    {
         vShaderFile.open(vertexPath);
         fShaderFile.open(fragmentPath);
         std::stringstream vShaderStream, fShaderStream;
@@ -64,39 +66,60 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     glDeleteShader(fragment);
 }
 
-void Shader::use() {
+void Shader::use() 
+{
     glUseProgram(ID);
 }
 
-void Shader::setBool(const std::string &name, bool value) const {
+void Shader::setBool(const std::string &name, bool value) const 
+{
     glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
 }
 
-void Shader::setInt(const std::string &name, int value) const {
-    glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+void Shader::setInt(const std::string &name, int value) const 
+{
+    int location = glGetUniformLocation(ID, name.c_str());
+    if (location == -1) 
+    {
+        std::cerr << "Warning: uniform '" << name << "' not found" << std::endl;
+    }
+    glUniform1i(location, value);
 }
 
-void Shader::setFloat(const std::string &name, float value) const {
+void Shader::setFloat(const std::string &name, float value) const 
+{
     glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
 }
 
-void Shader::setMat4(const std::string &name, const glm::mat4 &mat) const {
-    glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+void Shader::setMat4(const std::string &name, const glm::mat4 &mat) const 
+{
+    int location = glGetUniformLocation(ID, name.c_str());
+    if (location == -1) 
+    {
+        std::cerr << "Warning: uniform '" << name << "' not found" << std::endl;
+    }
+    glUniformMatrix4fv(location, 1, GL_FALSE, &mat[0][0]);
 }
 
-void Shader::checkCompileErrors(unsigned int shader, std::string type) {
+void Shader::checkCompileErrors(unsigned int shader, std::string type) 
+{
     int success;
     char infoLog[1024];
-    if (type != "PROGRAM") {
+    if (type != "PROGRAM") 
+    {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-        if (!success) {
+        if (!success) 
+        {
             glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
             std::cerr << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n"
                       << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
         }
-    } else {
+    } 
+    else 
+    {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
-        if (!success) {
+        if (!success) 
+        {
             glGetProgramInfoLog(shader, 1024, nullptr, infoLog);
             std::cerr << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n"
                       << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;

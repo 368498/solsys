@@ -352,9 +352,13 @@ GLuint loadCubemap(std::vector<std::string> faces) {
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
+    // Ensure correct byte alignment for JPEG
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
     int width, height, nrChannels;
+    bool allLoaded = true;
     for (unsigned int i = 0; i < faces.size(); i++) {
-        unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, STBI_rgb);
         if (data) {
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0,
                          GL_RGB, GL_UNSIGNED_BYTE, data);
@@ -362,6 +366,7 @@ GLuint loadCubemap(std::vector<std::string> faces) {
         } else {
             std::cout << "Failed to load cubemap texture: " << faces[i] << std::endl;
             stbi_image_free(data);
+            allLoaded = false;
         }
     }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -369,6 +374,12 @@ GLuint loadCubemap(std::vector<std::string> faces) {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cerr << "OpenGL error in cubemap setup: 0x" << std::hex << err << std::dec << std::endl;
+    }
+    if (!allLoaded) {
+        std::cerr << "Cubemap faces failed to load" << std::endl;
+    }
     return textureID;
 }
