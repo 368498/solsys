@@ -30,7 +30,7 @@ struct Planet {
 	glm::vec3 albedoColor = glm::vec3(1.0f); // fallback colour
 	unsigned int diffuseTexture = 0;     //  texture handle (0 if unused)
 
-	std::vector<Planet> children;        // implement mmons later
+	std::vector<Planet> children;        //  Moons 
 
 	glm::mat4 computeModel(float timeSeconds, const glm::mat4 &parentModel) const {
 		glm::mat4 model = parentModel;
@@ -338,6 +338,25 @@ int main()
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+    // A simple solar system: Earth with Moon
+    Planet earth;
+    earth.name = "Earth";
+    earth.radius = 1.0f;              
+    earth.orbitRadius = 0.0f;         // distance from origin
+    earth.orbitSpeed = 0.5f;          
+    earth.rotationSpeed = 1.0f;       // spin speed
+    earth.axialTiltDegrees = 23.5f;
+
+    Planet moon;
+    moon.name = "Moon";
+    moon.radius = 0.27f;              // relative to earth visual radius
+    moon.orbitRadius = 1.5f;
+    moon.orbitSpeed = 2.0f;
+    moon.rotationSpeed = 0.5f;
+    moon.axialTiltDegrees = 6.68f;
+
+    earth.children.push_back(moon);
+
     // main render loop
     while(!glfwWindowShouldClose(window))
     {
@@ -382,10 +401,8 @@ int main()
         shader.setMat4("view", view);
         shader.setMat4("projection", projection);
 
-        // draw scene objets
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, (GLsizei)sphereIndices.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+        // draw scene objects
+        earth.traverseDraw(shader, glm::mat4(1.0f), time, VAO, (GLsizei)sphereIndices.size());
 
         // draw skybox 
         glDepthFunc(GL_LEQUAL);
