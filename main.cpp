@@ -20,6 +20,48 @@
 // cubemap loader 
 GLuint loadCubemap(std::vector<std::string> faces);
 
+struct Planet {
+	std::string name;
+	float radius = 1.0f;                 
+	float orbitRadius = 0.0f;            // Distance from parent
+	float orbitSpeed = 0.0f;             // radians per second 
+	float rotationSpeed = 0.0f;          // radians per second 
+	float axialTiltDegrees = 0.0f;       // tilt around local X axis in degrees
+	glm::vec3 albedoColor = glm::vec3(1.0f); // fallback colour
+	unsigned int diffuseTexture = 0;     //  texture handle (0 if unused)
+
+	std::vector<Planet> children;        // implement mmons later
+
+	glm::mat4 computeModel(float timeSeconds, const glm::mat4 &parentModel) const {
+		glm::mat4 model = parentModel;
+		// Orbit around parent origin
+		float orbitAngle = orbitSpeed * timeSeconds;
+		model = glm::rotate(model, orbitAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::translate(model, glm::vec3(orbitRadius, 0.0f, 0.0f));
+		// axial tilt,  rotation
+		model = glm::rotate(model, glm::radians(axialTiltDegrees), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, rotationSpeed * timeSeconds, glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(radius));
+		return model;
+	}
+
+	void traverseDraw(const Shader &shader,
+		const glm::mat4 &parentModel,
+		float timeSeconds,
+		unsigned int sphereVao,
+		GLsizei sphereIndexCount) const
+	{
+		glm::mat4 model = computeModel(timeSeconds, parentModel);
+		shader.setMat4("model", model);
+		glBindVertexArray(sphereVao);
+		glDrawElements(GL_TRIANGLES, sphereIndexCount, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+		for (const Planet &child : children) {
+			child.traverseDraw(shader, model, timeSeconds, sphereVao, sphereIndexCount);
+		}
+	}
+};
+
 std::vector<float> sphereVertices;
 std::vector<unsigned int> sphereIndices;
 
