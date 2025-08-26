@@ -17,6 +17,51 @@
 
 #include "shader.h"
 
+// cubemap loader 
+GLuint loadCubemap(std::vector<std::string> faces);
+
+struct Planet {
+	std::string name;
+	float radius = 1.0f;                 
+	float orbitRadius = 0.0f;            // Distance from parent
+	float orbitSpeed = 0.0f;             // radians per second 
+	float rotationSpeed = 0.0f;          // radians per second 
+	float axialTiltDegrees = 0.0f;       // tilt around local X axis in degrees
+	glm::vec3 albedoColor = glm::vec3(1.0f); // fallback colour
+	unsigned int diffuseTexture = 0;     //  texture handle (0 if unused)
+
+	std::vector<Planet> children;        // implement mmons later
+
+	glm::mat4 computeModel(float timeSeconds, const glm::mat4 &parentModel) const {
+		glm::mat4 model = parentModel;
+		// Orbit around parent origin
+		float orbitAngle = orbitSpeed * timeSeconds;
+		model = glm::rotate(model, orbitAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::translate(model, glm::vec3(orbitRadius, 0.0f, 0.0f));
+		// axial tilt,  rotation
+		model = glm::rotate(model, glm::radians(axialTiltDegrees), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, rotationSpeed * timeSeconds, glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(radius));
+		return model;
+	}
+
+	void traverseDraw(const Shader &shader,
+		const glm::mat4 &parentModel,
+		float timeSeconds,
+		unsigned int sphereVao,
+		GLsizei sphereIndexCount) const
+	{
+		glm::mat4 model = computeModel(timeSeconds, parentModel);
+		shader.setMat4("model", model);
+		glBindVertexArray(sphereVao);
+		glDrawElements(GL_TRIANGLES, sphereIndexCount, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+		for (const Planet &child : children) {
+			child.traverseDraw(shader, model, timeSeconds, sphereVao, sphereIndexCount);
+		}
+	}
+};
+
 std::vector<float> sphereVertices;
 std::vector<unsigned int> sphereIndices;
 
@@ -32,6 +77,54 @@ float cameraRadius = 3.0f;
 float orbitAngle = 0.0f;       
 float orbitSpeed = 1.5f;    
 float zoomSpeed = 1.0f;   
+float pitchAngle = 0.0f;          // Camera tilt up/down around focal point
+float pitchSpeed = 1.0f;          // radians per second 
+float minCameraRadius = 0.5f;     // minimum zoom-in 
+float maxCameraRadius = 20.0f;    // maximum zoom-out 
+
+float skyboxVertices[] = {
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+};
 
 void generateUVSphere(float radius, int sectorCount, int stackCount, std::vector<float>& vertices) 
 {
@@ -112,8 +205,8 @@ void processInput(GLFWwindow *window)
     }
 
     //clamp camera orbit radius
-    if (cameraRadius < 0.5f) cameraRadius = 0.5f;
-    if (cameraRadius > 20.0f) cameraRadius = 20.0f;
+    if (cameraRadius < minCameraRadius) cameraRadius = minCameraRadius;
+    if (cameraRadius > maxCameraRadius) cameraRadius = maxCameraRadius;
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) 
     {
@@ -124,6 +217,22 @@ void processInput(GLFWwindow *window)
     {
         orbitAngle -= orbitSpeed * deltaTime;
     }
+
+    // camera pitch  with arrow keys
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+    {
+        pitchAngle += pitchSpeed * deltaTime;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+    {
+        pitchAngle -= pitchSpeed * deltaTime;
+    }
+
+    //Clamp pitch to avoid flippig
+    float maxPitch = glm::radians(89.0f);
+    if (pitchAngle > maxPitch) pitchAngle = maxPitch;
+    if (pitchAngle < -maxPitch) pitchAngle = -maxPitch;
 }
 
 std::string loadShaderSource(const char* filePath) 
@@ -141,8 +250,6 @@ std::string loadShaderSource(const char* filePath)
 int main()
 {
     if (!glfwInit()) return -1;
-
-    glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3); 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -164,6 +271,8 @@ int main()
         return -1;
     }
 
+    stbi_set_flip_vertically_on_load(false);
+
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
 
@@ -179,6 +288,15 @@ int main()
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
+
+    GLuint skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
     //bind vao
     glBindVertexArray(VAO);
@@ -201,6 +319,21 @@ int main()
 
     Shader shader("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
 
+    //  skybox shader
+    Shader skyboxShader("shaders/skybox_vertex.glsl", "shaders/skybox_fragment.glsl");
+    skyboxShader.use();
+    skyboxShader.setInt("skybox", 0);
+
+    std::vector<std::string> faces = {
+        "textures/right.jpg",
+        "textures/left.jpg",
+        "textures/top.jpg",
+        "textures/bottom.jpg",
+        "textures/front.jpg",
+        "textures/back.jpg"
+    };
+    GLuint cubemapTexture = loadCubemap(faces);
+
     glViewport(0, 0, 800, 600);
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -217,6 +350,7 @@ int main()
         processInput(window);
 
         // Clear colour and depth buffer
+        glClearColor(0.1f, 0.4f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         float time = (float)glfwGetTime();
@@ -226,8 +360,13 @@ int main()
         model = glm::rotate(model, time, glm::vec3(1.0f, 0.0f, 0.0f));
 
         //view - camera
-        cameraPos.x = cameraRadius * sin(orbitAngle);
-        cameraPos.z = cameraRadius * cos(orbitAngle);
+        float cp = cosf(pitchAngle);
+        float sp = sinf(pitchAngle);
+        float cy = cosf(orbitAngle);
+        float sy = sinf(orbitAngle);
+        cameraPos.x = cameraRadius * cp * sy;
+        cameraPos.y = cameraRadius * sp;
+        cameraPos.z = cameraRadius * cp * cy;
         glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f), cameraUp);
 
         //projection
@@ -237,19 +376,31 @@ int main()
         //model view projection
         glm::mat4 mvp = projection * view * model;
         
-        //Use shaders
+        //Use shaders for scene objects (planet)
         shader.use();
         shader.setMat4("model", model);
         shader.setMat4("view", view);
         shader.setMat4("projection", projection);
 
-        //draw here
-        glClearColor(0.1f, 0.4f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        //draw
+        // draw scene objets
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, (GLsizei)sphereIndices.size(), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+
+        // draw skybox 
+        glDepthFunc(GL_LEQUAL);
+        glDepthMask(GL_FALSE);
+        skyboxShader.use();
+        glm::mat4 viewSkybox = glm::mat4(glm::mat3(view));
+        skyboxShader.setMat4("view", viewSkybox);
+        skyboxShader.setMat4("projection", projection);
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
 
         //safety unbind
         glBindVertexArray(0);
@@ -261,4 +412,41 @@ int main()
 
     glfwTerminate();
     return 0;
+}
+
+GLuint loadCubemap(std::vector<std::string> faces) {
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    // Ensure correct byte alignment for JPEG
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    int width, height, nrChannels;
+    bool allLoaded = true;
+    for (unsigned int i = 0; i < faces.size(); i++) {
+        unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, STBI_rgb);
+        if (data) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0,
+                         GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        } else {
+            std::cout << "Failed to load cubemap texture: " << faces[i] << std::endl;
+            stbi_image_free(data);
+            allLoaded = false;
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cerr << "OpenGL error in cubemap setup: 0x" << std::hex << err << std::dec << std::endl;
+    }
+    if (!allLoaded) {
+        std::cerr << "Cubemap faces failed to load" << std::endl;
+    }
+    return textureID;
 }
