@@ -77,6 +77,10 @@ float cameraRadius = 3.0f;
 float orbitAngle = 0.0f;       
 float orbitSpeed = 1.5f;    
 float zoomSpeed = 1.0f;   
+float pitchAngle = 0.0f;          // Camera tilt up/down around focal point
+float pitchSpeed = 1.0f;          // radians per second 
+float minCameraRadius = 0.5f;     // minimum zoom-in 
+float maxCameraRadius = 20.0f;    // maximum zoom-out 
 
 float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f,
@@ -201,8 +205,8 @@ void processInput(GLFWwindow *window)
     }
 
     //clamp camera orbit radius
-    if (cameraRadius < 0.5f) cameraRadius = 0.5f;
-    if (cameraRadius > 20.0f) cameraRadius = 20.0f;
+    if (cameraRadius < minCameraRadius) cameraRadius = minCameraRadius;
+    if (cameraRadius > maxCameraRadius) cameraRadius = maxCameraRadius;
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) 
     {
@@ -213,6 +217,22 @@ void processInput(GLFWwindow *window)
     {
         orbitAngle -= orbitSpeed * deltaTime;
     }
+
+    // camera pitch  with arrow keys
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+    {
+        pitchAngle += pitchSpeed * deltaTime;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+    {
+        pitchAngle -= pitchSpeed * deltaTime;
+    }
+
+    //Clamp pitch to avoid flippig
+    float maxPitch = glm::radians(89.0f);
+    if (pitchAngle > maxPitch) pitchAngle = maxPitch;
+    if (pitchAngle < -maxPitch) pitchAngle = -maxPitch;
 }
 
 std::string loadShaderSource(const char* filePath) 
@@ -340,8 +360,13 @@ int main()
         model = glm::rotate(model, time, glm::vec3(1.0f, 0.0f, 0.0f));
 
         //view - camera
-        cameraPos.x = cameraRadius * sin(orbitAngle);
-        cameraPos.z = cameraRadius * cos(orbitAngle);
+        float cp = cosf(pitchAngle);
+        float sp = sinf(pitchAngle);
+        float cy = cosf(orbitAngle);
+        float sy = sinf(orbitAngle);
+        cameraPos.x = cameraRadius * cp * sy;
+        cameraPos.y = cameraRadius * sp;
+        cameraPos.z = cameraRadius * cp * cy;
         glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f), cameraUp);
 
         //projection
